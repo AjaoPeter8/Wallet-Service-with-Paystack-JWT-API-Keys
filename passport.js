@@ -8,18 +8,13 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: '/auth/google/callback', // Must match one in Google Cloud Console
+      callbackURL: 'http://localhost:3000/auth/google/callback'
     },
     async (accessToken, refreshToken, profile, done) => {
-      // Logic to find or create user in your database
-      // based on profile information (profile.id, profile.displayName, profile.emails[0].value)
-      // Call done(null, user) when complete
+      return done(null, profile);
     }
   )
 );
 
-passport.serializeUser((user, done) => done(null, user.id));
-passport.deserializeUser(async (id, done) => {
-  // Logic to find user by ID in your database
-  // Call done(null, user) when complete
-});
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((user, done) => done(null, user));
