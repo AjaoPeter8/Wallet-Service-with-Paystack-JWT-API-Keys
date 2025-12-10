@@ -13,6 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret';
  * /auth/google:
  *   get:
  *     summary: Initiate Google OAuth authentication
+ *     description: ⚠️ This endpoint must be accessed directly in browser, not via Swagger UI. It redirects to Google OAuth consent screen.
  *     tags: [Authentication]
  *     security: []
  *     responses:
