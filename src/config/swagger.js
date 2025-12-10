@@ -10,6 +10,10 @@ const options = {
     },
     servers: [
       {
+        url: 'https://wallet-service-with-paystack-jwt-api-keys-production.up.railway.app',
+        description: 'Production server',
+      },
+      {
         url: 'http://localhost:3000',
         description: 'Development server',
       },
