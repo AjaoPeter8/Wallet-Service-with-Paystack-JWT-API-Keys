@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "init-db": "node -e \"import('./src/config/initDb.js').then(m => m.initializeDatabase())\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

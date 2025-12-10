@@ -9,7 +9,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: 'http://localhost:3000/auth/google/callback'
+      callbackURL: 'http://wallet-service-with-paystack-jwt-api-keys-production.up.railway.app/auth/google/callback'
     },
     async (accessToken, refreshToken, profile, done) => {
       return done(null, profile);
