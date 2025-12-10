@@ -2,11 +2,13 @@ import express from 'express';
 import session from 'express-session';
 import passport from 'passport';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
 
 import authRoutes from './src/routes/auth.js';
 import walletRoutes from './src/routes/wallet.js';
 import apiKeyRoutes from './src/routes/apiKeys.js';
 import './src/config/passport.js';
+import { swaggerSpec } from './src/config/swagger.js';
 
 dotenv.config();
 
@@ -18,6 +20,9 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'your-session-secret';
 app.use(session({ secret: SESSION_SECRET, resave: false, saveUninitialized: true }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Swagger Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/auth', authRoutes);

@@ -7,6 +7,45 @@ import { db } from '../config/database.js';
 const router = express.Router();
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET || 'your-paystack-secret';
 
+/**
+ * @swagger
+ * /wallet/deposit:
+ *   post:
+ *     summary: Initialize a deposit transaction
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *       - apiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Amount to deposit
+ *                 example: 1000
+ *     responses:
+ *       200:
+ *         description: Deposit initialized successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reference:
+ *                   type: string
+ *                 authorization_url:
+ *                   type: string
+ *       400:
+ *         description: Invalid amount
+ *       500:
+ *         description: Payment initialization failed
+ */
 router.post('/deposit', authMiddleware, checkPermission('deposit'), async (req, res) => {
     const { amount } = req.body;
 
@@ -49,6 +88,25 @@ router.post('/deposit', authMiddleware, checkPermission('deposit'), async (req, 
     }
 });
 
+/**
+ * @swagger
+ * /wallet/paystack/webhook:
+ *   post:
+ *     summary: Paystack webhook for payment notifications
+ *     tags: [Wallet]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Webhook processed
+ *       400:
+ *         description: Invalid signature
+ */
 router.post('/paystack/webhook', async (req, res) => {
     const signature = req.headers['x-paystack-signature'];
     const body = JSON.stringify(req.body);
@@ -94,6 +152,39 @@ router.post('/paystack/webhook', async (req, res) => {
     res.json({ status: true });
 });
 
+/**
+ * @swagger
+ * /wallet/deposit/{reference}/status:
+ *   get:
+ *     summary: Check deposit transaction status
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *       - apiKeyAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reference
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Transaction reference
+ *     responses:
+ *       200:
+ *         description: Transaction status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reference:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                 amount:
+ *                   type: number
+ *       404:
+ *         description: Transaction not found
+ */
 router.get('/deposit/:reference/status', authMiddleware, async (req, res) => {
     try {
         const [rows] = await db.execute(
@@ -116,6 +207,28 @@ router.get('/deposit/:reference/status', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /wallet/balance:
+ *   get:
+ *     summary: Get wallet balance
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *       - apiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Wallet balance
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 balance:
+ *                   type: number
+ *       500:
+ *         description: Database error
+ */
 router.get('/balance', authMiddleware, checkPermission('read'), async (req, res) => {
     try {
         const [rows] = await db.execute(
@@ -129,6 +242,49 @@ router.get('/balance', authMiddleware, checkPermission('read'), async (req, res)
     }
 });
 
+/**
+ * @swagger
+ * /wallet/transfer:
+ *   post:
+ *     summary: Transfer funds to another wallet
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *       - apiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - wallet_number
+ *               - amount
+ *             properties:
+ *               wallet_number:
+ *                 type: string
+ *                 description: Recipient wallet number
+ *               amount:
+ *                 type: number
+ *                 description: Amount to transfer
+ *                 example: 500
+ *     responses:
+ *       200:
+ *         description: Transfer completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid parameters or insufficient balance
+ *       404:
+ *         description: Recipient wallet not found
+ */
 router.post('/transfer', authMiddleware, checkPermission('transfer'), async (req, res) => {
     const { wallet_number, amount } = req.body;
 
@@ -207,6 +363,27 @@ router.post('/transfer', authMiddleware, checkPermission('transfer'), async (req
     }
 });
 
+/**
+ * @swagger
+ * /wallet/transactions:
+ *   get:
+ *     summary: Get transaction history
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *       - apiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: List of transactions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Transaction'
+ *       500:
+ *         description: Database error
+ */
 router.get('/transactions', authMiddleware, checkPermission('read'), async (req, res) => {
     try {
         const [rows] = await db.execute(

@@ -7,6 +7,55 @@ import { generateApiKey, parseExpiry } from '../utils/helpers.js';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /keys/create:
+ *   post:
+ *     summary: Create a new API key
+ *     tags: [API Keys]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - expiry
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: API key name
+ *               permissions:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: List of permissions (read, deposit, transfer)
+ *                 example: ["read", "deposit"]
+ *               expiry:
+ *                 type: string
+ *                 description: Expiry duration (e.g., 30d, 1y)
+ *                 example: "30d"
+ *     responses:
+ *       200:
+ *         description: API key created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 api_key:
+ *                   type: string
+ *                 expires_at:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: Invalid request or limit exceeded
+ *       403:
+ *         description: Only users can create API keys
+ */
 router.post('/create', authMiddleware, async (req, res) => {
     const { name, permissions, expiry } = req.body;
 
@@ -60,6 +109,47 @@ router.post('/create', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /keys/rollover:
+ *   post:
+ *     summary: Rollover an expired API key
+ *     tags: [API Keys]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - expired_key_id
+ *               - expiry
+ *             properties:
+ *               expired_key_id:
+ *                 type: string
+ *                 description: ID of the expired API key
+ *               expiry:
+ *                 type: string
+ *                 description: New expiry duration
+ *                 example: "30d"
+ *     responses:
+ *       200:
+ *         description: API key rolled over successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 api_key:
+ *                   type: string
+ *                 expires_at:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Expired key not found
+ */
 router.post('/rollover', authMiddleware, async (req, res) => {
     const { expired_key_id, expiry } = req.body;
 
@@ -92,6 +182,36 @@ router.post('/rollover', authMiddleware, async (req, res) => {
         res.status(500).json({ error: 'Database error' });
     }
 });
+/**
+ * @swagger
+ * /keys/{name}:
+ *   delete:
+ *     summary: Revoke an API key
+ *     tags: [API Keys]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: name
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: API key name
+ *     responses:
+ *       200:
+ *         description: API key revoked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       403:
+ *         description: Only users can revoke API keys
+ *       404:
+ *         description: API key not found
+ */
 router.delete('/:name', authMiddleware, async (req, res) => {
     if (req.authType !== 'user') {
         return res.status(403).json({ error: 'Only users can revoke API keys' });
