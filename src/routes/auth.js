@@ -12,23 +12,44 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret';
  * @swagger
  * /auth/google:
  *   get:
- *     summary: Initiate Google OAuth authentication
- *     description: ⚠️ This endpoint must be accessed directly in browser, not via Swagger UI. It redirects to Google OAuth consent screen.
+ *     summary: Get Google OAuth authorization URL
+ *     description: Returns the Google OAuth authorization URL. Visit this URL in your browser to authenticate.
  *     tags: [Authentication]
  *     security: []
  *     responses:
- *       302:
- *         description: Redirects to Google OAuth consent screen
+ *       200:
+ *         description: Google OAuth authorization URL
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 authorization_url:
+ *                   type: string
+ *                   description: URL to visit for Google authentication
  */
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google', (req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const redirectUri = `${req.protocol}://${req.get('host')}/auth/google/callback`;
+    const scope = 'profile email';
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}`;
+    res.json({ authorization_url: authUrl });
+});
 
 /**
  * @swagger
  * /auth/google/callback:
  *   get:
  *     summary: Google OAuth callback endpoint
+ *     description: This endpoint is called by Google after authentication. Do not call directly.
  *     tags: [Authentication]
  *     security: []
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *         description: Authorization code from Google
  *     responses:
  *       200:
  *         description: Authentication successful
