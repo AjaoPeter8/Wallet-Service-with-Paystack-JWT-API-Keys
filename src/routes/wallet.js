@@ -5,7 +5,6 @@ import { authMiddleware, checkPermission } from '../middleware/auth.js';
 import { db } from '../config/database.js';
 
 const router = express.Router();
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET || 'your-paystack-secret';
 
 /**
  * @swagger
@@ -110,7 +109,7 @@ router.post('/deposit', authMiddleware, checkPermission('deposit'), async (req, 
 router.post('/paystack/webhook', async (req, res) => {
     const signature = req.headers['x-paystack-signature'];
     const body = JSON.stringify(req.body);
-    const hash = crypto.createHmac('sha512', PAYSTACK_SECRET).update(body).digest('hex');
+    const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET).update(body).digest('hex');
     
     console.log('Webhook received:', { event: req.body.event, reference: req.body.data?.reference });
     
