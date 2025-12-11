@@ -61,7 +61,7 @@ router.post('/deposit', authMiddleware, checkPermission('deposit'), async (req, 
             'https://api.paystack.co/transaction/initialize',
             {
                 email: req.user.email,
-                amount: amount * 100,
+                amount: amount,
                 reference: reference,
             },
             {
@@ -118,16 +118,17 @@ router.post('/paystack/webhook', async (req, res) => {
 
     const { event, data } = req.body;
     if (event === 'charge.success') {
+        const connection = await db.getConnection();
         try {
-            const connection = await db.getConnection();
             await connection.beginTransaction();
 
+            // Use FOR UPDATE to lock the row and prevent race conditions
             const [transactions] = await connection.execute(
-                'SELECT * FROM transactions WHERE reference = ? AND status = "pending"',
+                'SELECT * FROM transactions WHERE reference = ? FOR UPDATE',
                 [data.reference]
             );
 
-            if (transactions.length > 0) {
+            if (transactions.length > 0 && transactions[0].status === 'pending') {
                 const transaction = transactions[0];
 
                 await connection.execute(
