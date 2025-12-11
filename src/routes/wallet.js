@@ -222,22 +222,27 @@ router.get('/deposit/:reference/status', authMiddleware, async (req, res) => {
  *         description: Wallet balance
  *         content:
  *           application/json:
- *             schema:
+*             schema:
  *               type: object
  *               properties:
  *                 balance:
  *                   type: number
+ *                 wallet_number:
+ *                   type: string
  *       500:
  *         description: Database error
  */
 router.get('/balance', authMiddleware, checkPermission('read'), async (req, res) => {
     try {
         const [rows] = await db.execute(
-            'SELECT balance FROM wallets WHERE user_id = ?',
+            'SELECT balance, wallet_number FROM wallets WHERE user_id = ?',
             [req.user.id]
         );
 
-        res.json({ balance: rows.length > 0 ? parseFloat(rows[0].balance) : 0 });
+        res.json({ 
+            balance: rows.length > 0 ? parseFloat(rows[0].balance) : 0,
+            wallet_number: rows.length > 0 ? rows[0].wallet_number : null
+        });
     } catch (error) {
         res.status(500).json({ error: 'Database error' });
     }
