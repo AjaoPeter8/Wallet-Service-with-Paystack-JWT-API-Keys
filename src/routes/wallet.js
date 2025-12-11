@@ -112,21 +112,26 @@ router.post('/paystack/webhook', async (req, res) => {
     const body = JSON.stringify(req.body);
     const hash = crypto.createHmac('sha512', PAYSTACK_SECRET).update(body).digest('hex');
     
+    console.log('Webhook received:', { event: req.body.event, reference: req.body.data?.reference });
+    
     if (signature !== hash) {
+        console.log('Invalid signature');
         return res.status(400).json({ error: 'Invalid signature' });
     }
 
     const { event, data } = req.body;
+    
     if (event === 'charge.success') {
         const connection = await db.getConnection();
         try {
             await connection.beginTransaction();
 
-            // Use FOR UPDATE to lock the row and prevent race conditions
             const [transactions] = await connection.execute(
                 'SELECT * FROM transactions WHERE reference = ? FOR UPDATE',
                 [data.reference]
             );
+
+            console.log('Transaction found:', transactions.length > 0, 'Status:', transactions[0]?.status);
 
             if (transactions.length > 0 && transactions[0].status === 'pending') {
                 const transaction = transactions[0];
@@ -140,11 +145,13 @@ router.post('/paystack/webhook', async (req, res) => {
                     'UPDATE wallets SET balance = balance + ? WHERE user_id = ?',
                     [transaction.amount, transaction.user_id]
                 );
+                console.log('Balance updated for user:', transaction.user_id, 'Amount:', transaction.amount);
             }
 
             await connection.commit();
             connection.release();
         } catch (error) {
+            console.error('Webhook error:', error);
             await connection.rollback();
             connection.release();
         }
