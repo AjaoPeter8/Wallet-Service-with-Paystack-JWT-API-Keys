@@ -62,7 +62,6 @@ router.post('/deposit', authMiddleware, checkPermission('deposit'), async (req, 
                 email: req.user.email,
                 amount: amount,
                 reference: reference,
-                callback_url: `${process.env.BASE_URL || 'http://localhost:3000'}/wallet/deposit/callback`
             },
             {
                 headers: {
@@ -107,62 +106,23 @@ router.post('/deposit', authMiddleware, checkPermission('deposit'), async (req, 
  *       400:
  *         description: Invalid signature
  */
-router.get('/deposit/callback', async (req, res) => {
-    const { reference } = req.query;
-    if (!reference) return res.status(400).send('Missing reference');
-
-    try {
-        const verifyResponse = await axios.get(
-            `https://api.paystack.co/transaction/verify/${reference}`,
-            { headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET}` } }
-        );
-
-        if (verifyResponse.data.status && verifyResponse.data.data.status === 'success') {
-            const connection = await db.getConnection();
-            try {
-                await connection.beginTransaction();
-                const [transactions] = await connection.execute(
-                    'SELECT * FROM transactions WHERE reference = ? FOR UPDATE',
-                    [reference]
-                );
-
-                if (transactions.length > 0 && transactions[0].status === 'pending') {
-                    await connection.execute(
-                        'UPDATE transactions SET status = "success" WHERE id = ?',
-                        [transactions[0].id]
-                    );
-                    await connection.execute(
-                        'UPDATE wallets SET balance = balance + ? WHERE user_id = ?',
-                        [transactions[0].amount, transactions[0].user_id]
-                    );
-                }
-                await connection.commit();
-                connection.release();
-                return res.send('<h1>Payment Successful!</h1><p>Your wallet has been credited.</p>');
-            } catch (error) {
-                await connection.rollback();
-                connection.release();
-            }
-        }
-        return res.send('<h1>Payment Failed</h1>');
-    } catch (error) {
-        return res.status(500).send('Verification failed');
-    }
-});
-
 router.post('/paystack/webhook', async (req, res) => {
     const signature = req.headers['x-paystack-signature'];
-    const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET).update(req.rawBody || JSON.stringify(req.body)).digest('hex');
+    const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET).update(req.rawBody).digest('hex');
+    
+    console.log('Webhook received:', { event: req.body.event, reference: req.body.data?.reference });
     
     if (signature !== hash) {
+        console.log('Invalid signature');
         return res.status(400).json({ error: 'Invalid signature' });
     }
 
     const { event, data } = req.body;
     
     if (event === 'charge.success') {
-        const connection = await db.getConnection();
+        let connection;
         try {
+            connection = await db.getConnection();
             await connection.beginTransaction();
 
             const [transactions] = await connection.execute(
@@ -188,11 +148,20 @@ router.post('/paystack/webhook', async (req, res) => {
             }
 
             await connection.commit();
-            connection.release();
+            console.log('Webhook processed successfully for reference:', data.reference);
         } catch (error) {
             console.error('Webhook error:', error);
-            await connection.rollback();
-            connection.release();
+            if (connection) {
+                try {
+                    await connection.rollback();
+                } catch (rollbackError) {
+                    console.error('Rollback error:', rollbackError);
+                }
+            }
+        } finally {
+            if (connection) {
+                connection.release();
+            }
         }
     }
 
